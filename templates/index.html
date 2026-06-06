@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ur" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CMS Auto Runner</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3e;
+    --accent: #4f8ef7;
+    --accent2: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  header span { font-size: 0.8rem; color: var(--muted); }
+  
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--danger); display: inline-block; margin-left: auto;
+  }
+  .status-dot.ok { background: var(--accent2); }
+  
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    padding: 10px 20px; cursor: pointer; border: none; background: none;
+    color: var(--muted); font-size: 0.9rem; border-bottom: 2px solid transparent;
+    transition: all .2s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1rem; margin-bottom: 16px; color: var(--text); }
+  
+  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 6px; }
+  input, textarea, select {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; color: var(--text); font-size: 0.9rem;
+    outline: none; transition: border .2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; font-family: monospace; font-size: 0.82rem; }
+  
+  .form-row { margin-bottom: 14px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  
+  .btn {
+    padding: 10px 22px; border: none; border-radius: 7px;
+    cursor: pointer; font-size: 0.9rem; font-weight: 600;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--accent2); color: #fff; }
+  .btn-warn { background: var(--warn); color: #000; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+  
+  .msg-box {
+    padding: 10px 14px; border-radius: 7px; margin-top: 12px;
+    font-size: 0.85rem; display: none;
+  }
+  .msg-box.show { display: block; }
+  .msg-ok { background: #14532d; border: 1px solid #166534; color: #bbf7d0; }
+  .msg-err { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
+  .msg-info { background: #1e3a5f; border: 1px solid #1d4ed8; color: #bfdbfe; }
+  
+  /* Log area */
+  #log-area {
+    background: #09090b; border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+    height: 360px; overflow-y: auto;
+    font-family: monospace; font-size: 0.78rem; line-height: 1.6;
+  }
+  .log-line { white-space: pre-wrap; word-break: break-all; }
+  .log-line.ok { color: #4ade80; }
+  .log-line.err { color: #f87171; }
+  .log-line.warn { color: #fbbf24; }
+  .log-line.info { color: #93c5fd; }
+  
+  /* Stats bar */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; text-align: center;
+  }
+  .stat-num { font-size: 1.8rem; font-weight: 700; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .c-total { color: var(--text); }
+  .c-ok { color: var(--accent2); }
+  .c-skip { color: var(--warn); }
+  .c-invalid { color: var(--danger); }
+  
+  /* Progress */
+  .progress-wrap { background: var(--border); border-radius: 99px; height: 6px; margin: 10px 0; }
+  .progress-bar { height: 100%; border-radius: 99px; background: var(--accent); transition: width .4s; }
+  
+  /* Prosecutor select */
+  #prosecutor-list { margin-top: 10px; }
+  
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  
+  .tip {
+    background: #1e293b; border-left: 3px solid var(--accent);
+    padding: 10px 14px; border-radius: 0 7px 7px 0;
+    font-size: 0.82rem; color: var(--muted); margin-bottom: 14px;
+  }
+  
+  @media (max-width: 600px) {
+    .form-row-2 { grid-template-columns: 1fr; }
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ CMS Auto Runner</h1>
+    <span>Punjab Prosecution — Fast Runner Web Interface</span>
+  </div>
+  <div id="hdr-status">
+    <span id="hdr-dot" class="status-dot"></span>
+    <span id="hdr-txt" style="font-size:.8rem;margin-left:6px;color:var(--muted)">Not logged in</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('login')">🔐 Login / Session</button>
+    <button class="tab-btn" onclick="switchTab('run')">▶ Run Script</button>
+    <button class="tab-btn" onclick="switchTab('help')">📋 Help</button>
+  </div>
+
+  <!-- ═══════════════ LOGIN TAB ═══════════════ -->
+  <div id="tab-login" class="tab-panel active">
+
+    <div class="card">
+      <h2>Option A — Username &amp; Password se Login</h2>
+      <div class="tip">
+        Website ke credentials daalo, automatically session capture ho jayega.
+      </div>
+      <div class="form-row">
+        <label>Username / Email</label>
+        <input type="text" id="inp-user" placeholder="user@example.com">
+      </div>
+      <div class="form-row">
+        <label>Password</label>
+        <input type="password" id="inp-pass" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Login</button>
+      <div id="msg-login" class="msg-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>Option B — Browser se Manual Session Paste karo</h2>
+      <div class="tip">
+        F12 → Network → kisi request → Headers → Response Headers → set-cookie se <b>XSRF-TOKEN</b> aur <b>prosecution_department_of_punjab_session</b> copy karo.
+      </div>
+      <div class="form-row">
+        <label>XSRF-TOKEN (URL-decoded value)</label>
+        <input type="text" id="inp-xsrf" placeholder="eyJ...">
+      </div>
+      <div class="form-row">
+        <label>prosecution_department_of_punjab_session</label>
+        <input type="text" id="inp-sess" placeholder="eyJ...">
+      </div>
+      <button class="btn btn-warn" onclick="doManualSession()">Manual Session Load</button>
+      <div id="msg-manual" class="msg-box"></div>
+    </div>
+
+    <div class="card" id="prosecutor-section" style="display:none">
+      <h2>Prosecutor Select karo</h2>
+      <div class="form-row">
+        <label>Prosecutor Name / ID</label>
+        <select id="prosecutor-list">
+          <option value="">-- Load ho raha hai --</option>
+        </select>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="setProsecutor()">Set Prosecutor</button>
+      <div id="msg-pros" class="msg-box"></div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ RUN TAB ═══════════════ -->
+  <div id="tab-run" class="tab-panel">
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-num c-total" id="st-total">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num c-ok" id="st-ok">0</div>
+        <div class="stat-label">Success ✅</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num c-skip" id="st-skip">0</div>
+        <div class="stat-label">Skipped ⚠️</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num c-invalid" id="st-inv">0</div>
+        <div class="stat-label">Invalid ❌</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Input Data (Tab-Separated)</h2>
+      <div class="tip">
+        Format: <code>Sr &lt;Tab&gt; [Extra] &lt;Tab&gt; FIR_No &lt;Tab&gt; Year &lt;Tab&gt; Offence &lt;Tab&gt; Station &lt;Tab&gt; Date &lt;Tab&gt; Decision</code><br>
+        Example: <code>1&emsp;200&emsp;22&emsp;2024&emsp;379 PPC&emsp;Rang Mehal&emsp;01-01-24&emsp;Acquitted</code>
+      </div>
+      <div class="form-row">
+        <label>Cases (ek line = ek case, Tab se separate)</label>
+        <textarea id="inp-data" rows="10" placeholder="1&#9;200&#9;22&#9;2024&#9;379 PPC&#9;Rang Mehal&#9;01-01-24&#9;Acquitted&#10;2&#9;201&#9;45&#9;2023&#9;302 PPC&#9;Gulberg&#9;15-03-23&#9;Convicted"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-success" id="run-btn" onclick="runScript()">▶ Run</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs()">Clear Logs</button>
+        <span id="run-status" style="font-size:.85rem;color:var(--muted)">Ready</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">Live Logs</h2>
+        <button class="btn btn-sm" style="background:var(--border)" onclick="toggleAutoScroll()">Auto-scroll: <span id="scroll-lbl">ON</span></button>
+      </div>
+      <div id="log-area"></div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ HELP TAB ═══════════════ -->
+  <div id="tab-help" class="tab-panel">
+    <div class="card">
+      <h2>📋 Istemal ka Tarika</h2>
+      <div style="line-height:1.9;font-size:.88rem">
+        <p><b>Step 1 — Login karo</b><br>
+        "Login / Session" tab mein ja ke username + password dalo ya browser se manual cookies paste karo.</p>
+        <hr class="divider">
+        <p><b>Step 2 — Prosecutor select karo</b><br>
+        Login ke baad prosecutor dropdown load hoga. Apna prosecutor chunno aur "Set" karo.</p>
+        <hr class="divider">
+        <p><b>Step 3 — Data paste karo</b><br>
+        "Run Script" tab mein apna tab-separated data paste karo. Har line ek case hai.</p>
+        <hr class="divider">
+        <p><b>Step 4 — Run karo</b><br>
+        ▶ Run button dabao. Live logs neeche dikhenge. Progress stats upar update hote rahenge.</p>
+        <hr class="divider">
+        <p><b>⚠️ Session Note</b><br>
+        Session sirf ~2 ghante valid rehta hai. Expire hone ke baad dobara login karna hoga.</p>
+        <hr class="divider">
+        <p><b>Script kya karta hai (har case ke liye):</b></p>
+        <ol style="margin-left:1.2rem;margin-top:8px">
+          <li>FIR fetch karta hai</li>
+          <li>Prosecution create karta hai</li>
+          <li>Court create karta hai</li>
+          <li>Framing of Charge karta hai</li>
+          <li>Judgment (Final Order) update karta hai</li>
+        </ol>
+        <hr class="divider">
+        <p><b>Decision Options:</b><br>
+        Acquitted, Convicted, Fined, Agreed, u/s 249-A, u/s 345 Cr.P.C, Consign to Record, Probation, Dismissed — aur Urdu mein bhi support hai.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let autoScroll = true;
+let evtSource = null;
+let polling = null;
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg-box show ' + (type === 'ok' ? 'msg-ok' : type === 'err' ? 'msg-err' : 'msg-info');
+}
+
+async function doLogin() {
+  const username = document.getElementById('inp-user').value.trim();
+  const password = document.getElementById('inp-pass').value.trim();
+  showMsg('msg-login', 'Login ho raha hai...', 'info');
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const d = await r.json();
+    showMsg('msg-login', d.msg, d.ok ? 'ok' : 'err');
+    if (d.ok) { updateHeader(true); loadProsecutors(); }
+  } catch(e) { showMsg('msg-login', 'Network error: ' + e, 'err'); }
+}
+
+async function doManualSession() {
+  const xsrf = document.getElementById('inp-xsrf').value.trim();
+  const session_cookie = document.getElementById('inp-sess').value.trim();
+  showMsg('msg-manual', 'Session load ho raha hai...', 'info');
+  try {
+    const r = await fetch('/api/session-manual', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({xsrf, session_cookie})
+    });
+    const d = await r.json();
+    showMsg('msg-manual', d.msg, d.ok ? 'ok' : 'err');
+    if (d.ok) { updateHeader(true); loadProsecutors(); }
+  } catch(e) { showMsg('msg-manual', 'Error: ' + e, 'err'); }
+}
+
+async function loadProsecutors() {
+  document.getElementById('prosecutor-section').style.display = 'block';
+  const sel = document.getElementById('prosecutor-list');
+  sel.innerHTML = '<option>Loading...</option>';
+  try {
+    const r = await fetch('/api/get-prosecutors');
+    const d = await r.json();
+    if (d.ok && d.prosecutors.length) {
+      sel.innerHTML = d.prosecutors.map(p =>
+        `<option value="${p.id}">${p.name} (ID: ${p.id})</option>`
+      ).join('');
+    } else {
+      sel.innerHTML = '<option value="">Koi prosecutor nahi mila — manually ID daalo</option>';
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error loading</option>';
+  }
+}
+
+async function setProsecutor() {
+  const pid = document.getElementById('prosecutor-list').value;
+  if (!pid) { showMsg('msg-pros', 'Prosecutor select karo', 'err'); return; }
+  const r = await fetch('/api/set-prosecutor', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({prosecutor_id: pid})
+  });
+  const d = await r.json();
+  showMsg('msg-pros', d.msg, d.ok ? 'ok' : 'err');
+}
+
+function updateHeader(loggedIn) {
+  document.getElementById('hdr-dot').className = 'status-dot' + (loggedIn ? ' ok' : '');
+  document.getElementById('hdr-txt').textContent = loggedIn ? 'Logged in ✅' : 'Not logged in';
+}
+
+async function runScript() {
+  const data = document.getElementById('inp-data').value.trim();
+  if (!data) { alert('Data paste karo pehle'); return; }
+
+  const runBtn = document.getElementById('run-btn');
+  runBtn.disabled = true;
+  document.getElementById('run-status').textContent = 'Running...';
+
+  try {
+    const r = await fetch('/api/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({input_text: data})
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      alert(d.msg);
+      runBtn.disabled = false;
+      document.getElementById('run-status').textContent = 'Error';
+      return;
+    }
+    startSSE();
+    startStatsPoll();
+  } catch(e) {
+    alert('Error: ' + e);
+    runBtn.disabled = false;
+  }
+}
+
+function startSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/stream-logs');
+  const logArea = document.getElementById('log-area');
+
+  evtSource.onmessage = function(e) {
+    const d = JSON.parse(e.data);
+    if (d.type === 'log') {
+      addLog(d.msg);
+    } else if (d.type === 'done') {
+      addLog('═══════════════════════════════════', 'info');
+      addLog(`✅ COMPLETE — Success: ${d.stats.success} | Skip: ${d.stats.skip} | Invalid: ${d.stats.invalid} | Total: ${d.stats.total}`, 'ok');
+      document.getElementById('run-btn').disabled = false;
+      document.getElementById('run-status').textContent = 'Done ✅';
+      updateStats(d.stats);
+      if (polling) { clearInterval(polling); polling = null; }
+      evtSource.close();
+    }
+  };
+  evtSource.onerror = function() {
+    addLog('⚠️ SSE connection error', 'warn');
+  };
+}
+
+function startStatsPoll() {
+  if (polling) clearInterval(polling);
+  polling = setInterval(async () => {
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      updateStats(d.stats);
+      if (!d.running) {
+        clearInterval(polling);
+        polling = null;
+        document.getElementById('run-btn').disabled = false;
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+function updateStats(s) {
+  document.getElementById('st-total').textContent = s.total;
+  document.getElementById('st-ok').textContent = s.success;
+  document.getElementById('st-skip').textContent = s.skip;
+  document.getElementById('st-inv').textContent = s.invalid;
+}
+
+function addLog(msg, type) {
+  const logArea = document.getElementById('log-area');
+  const div = document.createElement('div');
+  div.className = 'log-line ' + (
+    msg.includes('✅') ? 'ok' :
+    msg.includes('❌') || msg.includes('ERROR') || msg.includes('failed') ? 'err' :
+    msg.includes('⚠️') || msg.includes('WARNING') ? 'warn' : 'info'
+  );
+  if (type) div.className = 'log-line ' + type;
+  div.textContent = msg;
+  logArea.appendChild(div);
+  if (autoScroll) logArea.scrollTop = logArea.scrollHeight;
+}
+
+function clearLogs() {
+  document.getElementById('log-area').innerHTML = '';
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  document.getElementById('scroll-lbl').textContent = autoScroll ? 'ON' : 'OFF';
+}
+
+// Initial status check
+(async function() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    if (d.logged_in) { updateHeader(true); loadProsecutors(); }
+    updateStats(d.stats);
+  } catch(e) {}
+})();
+</script>
+
+</body>
+</html>
